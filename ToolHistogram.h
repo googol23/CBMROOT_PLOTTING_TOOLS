@@ -122,6 +122,23 @@ std::string FindAxisUnit(const TAxis* axis){
     return unit;
 }
 
+int GetFirstBinFilled(TH1* h){
+  for (int i = 1; i < h->GetXaxis()->GetNbins(); i++){
+    if (h->GetBinContent(i)){
+      return i;
+    }
+  }
+  return 0;
+}
+
+int GetLastBinFilled(TH1* h){
+  for (int i = h->GetXaxis()->GetNbins(); i > 0; i--){
+    if (h->GetBinContent(i)){
+      return i;
+    }
+  }
+  return -1;
+}
 
 struct H1Error {
     TH1* mean;
@@ -189,4 +206,5 @@ TH1D* Involute(std::vector<TH1D*> set){
     }
     return involute;
 }
+
 #endif

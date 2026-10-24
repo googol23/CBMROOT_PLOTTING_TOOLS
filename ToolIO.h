@@ -1,8 +1,6 @@
 #ifndef TOOLIO_H
 #define TOOLIO_H
 
-
-
 template <typename T>
 std::ostream& operator<< (std::ostream& out, const std::vector<T>& v){
     out << "[";  for (const T& i : v){ out << i << " ";  } out << "]";

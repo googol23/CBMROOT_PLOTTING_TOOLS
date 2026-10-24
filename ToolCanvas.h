@@ -75,7 +75,7 @@ TCanvas* MakeHDCanvas(
         gPad->SetRightMargin(0.12);
     }
 
-    gStyle->SetPadColor(bkg_color_idx);
+    if (DARK_THEME_ACTIVE) gStyle->SetPadColor(bkg_color_idx);
 
     hd_canvas[c_name]->cd();
     return hd_canvas[c_name].get();
