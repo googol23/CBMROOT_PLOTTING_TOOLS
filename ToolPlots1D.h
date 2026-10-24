@@ -10,6 +10,9 @@
 #ifndef TOOLPLOTS1D_H
 #define TOOLPLOTS1D_H
 
+#include <TLegend.h>
+#include <TMath.h>
+
 void MakeHdPlot1D(TH1* h,                                     // Histogram to be drawn
                   std::string x_label            = "x-axis",  // label for x-axis
                   std::string y_label            = "y-axis",  // label for y-axis
@@ -32,7 +35,8 @@ void MakeHdPlot1D(TH1* h,                                     // Histogram to be
   h->Draw("histo");
 
   for (auto& f : features) {
-    std::cout << " - MakeHdPlot2D - Drawing additional feature: " << f->GetName() << std::endl;
+    if (f == nullptr) continue;
+    std::cout << " - MakeHdPlot1D - Drawing additional feature: " << f->GetName() << std::endl;
     f->DrawClone();
   }
 
@@ -43,25 +47,40 @@ template<typename H>
 void PlotContribution(std::vector<H*> v, std::vector<std::string> titles, std::string c_name = "",
                       std::string x_label = "", std::string y_label = "")
 {
-  H* sum = (H*) v[0]->Clone();
+  if (v.empty() || titles.size() != v.size() || v.size() >= color_blind_safe.size()) {
+    std::cout << " - WARNING - [PlotContribution] Invalid histogram/title count or too many contributions\n";
+    return;
+  }
+  if (std::any_of(v.begin(), v.end(), [](H* h) { return h == nullptr; })) {
+    std::cout << " - WARNING - [PlotContribution] Null histogram input\n";
+    return;
+  }
+
+  std::unique_ptr<H> sum((H*) v[0]->Clone());
+  if (!sum) return;
   sum->Reset();
   sum->SetLineWidth(hd_line_width);
   sum->SetLineColor(color_blind_safe[0]);
   sum->SetFillColorAlpha(color_blind_safe[0], 0.2);
-  SetAxisLabels(sum, x_label, y_label);
+  SetAxisLabels(sum.get(), x_label, y_label);
   sum->GetXaxis()->SetMaxDigits(3);
   sum->GetXaxis()->SetNdivisions(10);
 
   MakeHDCanvas(c_name);
 
+  std::vector<std::unique_ptr<H>> contributions;
+  contributions.reserve(v.size());
   for (auto h : v) {
+    contributions.emplace_back((H*) h->Clone());
+    if (!contributions.back()) return;
     sum->Add(h);
-    h->GetYaxis()->SetMaxDigits(3);
-    h->GetYaxis()->SetNdivisions(10);
-    h->GetXaxis()->SetMaxDigits(3);
-    h->GetXaxis()->SetNdivisions(10);
   }
-  double scale = 1. / sum->Integral();
+  const double integral = sum->Integral();
+  if (integral == 0.) {
+    std::cout << " - WARNING - [PlotContribution] Cannot normalize a zero-integral histogram\n";
+    return;
+  }
+  const double scale = 1. / integral;
   sum->Scale(scale);
   sum->Draw("histo same");
 
@@ -72,7 +91,8 @@ void PlotContribution(std::vector<H*> v, std::vector<std::string> titles, std::s
   legend_columns++;
 
   int contribution = 1;
-  for (auto h : v) {
+  for (auto& owned_histogram : contributions) {
+    H* h = owned_histogram.get();
     h->Scale(scale);
     h->GetXaxis()->SetMaxDigits(3);
     h->GetXaxis()->SetNdivisions(10);
@@ -145,7 +165,7 @@ void Compare1D(H* h_0_ptr, H* h_1_ptr, std::string title_0, std::string title_1,
   }
   else {
     H* h_0 = (H*) h_0_ptr->Clone();
-    ConfigureCompare1D(h_0, title_0, Colors1D[3]);
+    ConfigureCompare1D(h_0, Colors1D[3], y_max, x_label, y_label, marker);
     h_0->Draw("P same");
     legend->AddEntry((H*) h_0->Clone(), title_0.c_str(), "f");
     legend_n_col++;
@@ -156,7 +176,7 @@ void Compare1D(H* h_0_ptr, H* h_1_ptr, std::string title_0, std::string title_1,
   }
   else {
     H* h_1 = (H*) h_1_ptr->Clone();
-    ConfigureCompare1D(h_1, title_1, Colors1D[4]);
+    ConfigureCompare1D(h_1, Colors1D[4], y_max, x_label, y_label, marker);
     h_1->Draw("P same");
     legend->AddEntry((H*) h_1->Clone(), title_1.c_str(), "f");
     legend_n_col++;
@@ -344,7 +364,10 @@ void CompareMulti1D(std::vector<H*> v, std::vector<std::string> titles, std::str
                     std::vector<TObject*> features = {})
 {
 
-  assert(v.size() != 0 && "Nothing to plot");
+  if (v.empty()) {
+    std::cout << " - WARNING - [CompareMulti1D] Nothing to plot\n";
+    return;
+  }
   if (!titles.size()) {
     std::cout << " - WARNING - [CompareMulti1D] No titles provided. Using TObject name\n";
     for (auto h : v) {
@@ -355,6 +378,17 @@ void CompareMulti1D(std::vector<H*> v, std::vector<std::string> titles, std::str
         titles.push_back("No title");
       }
     }
+  }
+  if (titles.size() != v.size() ||
+      (line_style.size() != 0 && line_style.size() != v.size()) ||
+      (line_color.size() != 0 && line_color.size() != v.size()) ||
+      (fill_color.size() != 0 && fill_color.size() != v.size())) {
+    std::cout << " - WARNING - [CompareMulti1D] Input vector lengths do not match\n";
+    return;
+  }
+  if (std::any_of(v.begin(), v.end(), [](H* h) { return h == nullptr; })) {
+    std::cout << " - WARNING - [CompareMulti1D] Null histogram input\n";
+    return;
   }
   int n_obj = v.size();
 
@@ -401,7 +435,7 @@ void CompareMulti1D(std::vector<H*> v, std::vector<std::string> titles, std::str
       h->SetLineColor(line_color[idx]);
     }
     else {
-      h->SetLineColor(color_large_set[idx]);
+      h->SetLineColor(color_large_set[idx % color_large_set.size()]);
     }
 
 
@@ -503,7 +537,7 @@ void CompareSpill(TH1* h_spill_0_ptr = nullptr, /* Off spill channel distributio
   legend_x->SetNColumns(n_of_columns);
   legend_x->DrawClone();
 
-  for (int chn = 0; chn < 2048; chn++) {
+  for (int chn = 0; chn < std::min(2048, static_cast<int>(mark_noisy.size())); chn++) {
     if (mark_noisy[chn]) {
       TBox chn_box = TBox(chn + 0.2, 1.1 * max, chn + 0.8, 1.25 * max);
       chn_box.SetLineColor(kBlack);

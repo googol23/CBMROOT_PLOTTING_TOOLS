@@ -7,6 +7,11 @@
 #ifndef TOOLFIT1D_H
 #define TOOLFIT1D_H
 
+#include <TF1.h>
+#include <TFitResult.h>
+#include <TLegend.h>
+#include <TPaveText.h>
+
 struct FitPar{
     int index;
     double x_ini, x_min, x_max;

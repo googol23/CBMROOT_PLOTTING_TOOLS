@@ -1,6 +1,9 @@
 #ifndef TOOLSETUPADDRESS_H
 #define TOOLSETUPADDRESS_H
 
+#include <CbmStsAddress.h>
+#include <CbmStsAnaBase.h>
+
 #define CBMROOTLIB
 
 std::vector<int32_t> sts_address_mcbm2021 = {

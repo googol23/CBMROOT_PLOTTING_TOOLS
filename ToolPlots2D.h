@@ -13,6 +13,9 @@
 #ifndef TOOLPLOTS2D_H
 #define TOOLPLOTS2D_H
 
+#include <TProfile.h>
+#include <regex>
+
 void MakeHdPlot2D(TH2* h,                            // Histogram to be draw
                   std::string x_label,               // label for x-axis
                   std::string y_label,               // label for y-axis
@@ -90,16 +93,16 @@ std::tuple<TProfile*, TFitResultPtr> Make2DWithProfile( TH2* h,                 
 
     auto profile_y = h->ProfileY(Form("%s_profile", h->GetName()), fst_bin, lst_bin, "");
 
-    std::unique_ptr<TGraphErrors> gr_profile = std::make_unique<TGraphErrors>(profile_y->GetNbinsX());
-    for (int bin = 1; bin <= h->GetNbinsX(); bin++){
+    std::unique_ptr<TGraphErrors> gr_profile = std::make_unique<TGraphErrors>();
+    for (int bin = 1; bin <= profile_y->GetNbinsX(); bin++){
         double axis = profile_y->GetBinCenter(bin);
         double mean = profile_y->GetBinContent(bin);
         double rms = profile_y->GetBinError(bin);
         double bin_size = profile_y->GetXaxis()->GetBinWidth(bin);
 
         if (rms != 0 && rms < 0.015){
-            gr_profile->SetPoint(bin, mean, axis);
-            gr_profile->SetPointError(bin, rms, bin_size/2);
+            gr_profile->SetPoint(gr_profile->GetN(), mean, axis);
+            gr_profile->SetPointError(gr_profile->GetN() - 1, rms, bin_size/2);
         }
     }
     gr_profile->SetMarkerStyle(kDot);
@@ -110,6 +113,10 @@ std::tuple<TProfile*, TFitResultPtr> Make2DWithProfile( TH2* h,                 
     gr_profile->Draw("same p");
 
     auto fit_ptr = profile_y->Fit("pol1", "SQ0");
+    if (fit_ptr || !fit_ptr->IsValid()) {
+        hd_canvas[c_name]->SaveAs(Form("images/%s.%s", c_name.c_str(), SAVE_CANVAS_AS.c_str()));
+        return std::make_tuple(profile_y, fit_ptr);
+    }
     double p0 = fit_ptr->Parameter(0);
     double p1 = fit_ptr->Parameter(1);
     double y0 = h->GetYaxis()->GetBinLowEdge(1);
@@ -274,20 +281,24 @@ void MergeStationSensors(   std::vector<TH2D*> h_sensor,
                             double margin = 0
                         ){
     // Get binning from first sensor
-    double bin_dx = h_sensor[0]->GetXaxis()->GetBinWidth(0);
-    double bin_dy = h_sensor[0]->GetYaxis()->GetBinWidth(0);
+    if (h_sensor.empty() || std::any_of(h_sensor.begin(), h_sensor.end(), [](TH2D* h) { return h == nullptr; })) {
+        std::cout << " - WARNING - [MergeStationSensors] Empty or invalid sensor list\n";
+        return;
+    }
+    double bin_dx = h_sensor[0]->GetXaxis()->GetBinWidth(1);
+    double bin_dy = h_sensor[0]->GetYaxis()->GetBinWidth(1);
 
     // Scan range for station histogram
     double station_x_min = h_sensor[0]->GetXaxis()->GetBinLowEdge(1);
-    double station_x_max = h_sensor[0]->GetXaxis()->GetBinLowEdge(h_sensor[0]->GetNbinsX());
-    double station_y_min = h_sensor[0]->GetXaxis()->GetBinLowEdge(1);
-    double station_y_max = h_sensor[0]->GetYaxis()->GetBinLowEdge(h_sensor[0]->GetNbinsY());
+    double station_x_max = h_sensor[0]->GetXaxis()->GetBinUpEdge(h_sensor[0]->GetNbinsX());
+    double station_y_min = h_sensor[0]->GetYaxis()->GetBinLowEdge(1);
+    double station_y_max = h_sensor[0]->GetYaxis()->GetBinUpEdge(h_sensor[0]->GetNbinsY());
 
     for (auto h : h_sensor){
         station_x_min = std::min(station_x_min, h->GetXaxis()->GetBinLowEdge(1));
-        station_x_max = std::max(station_x_max, h->GetXaxis()->GetBinLowEdge(h_sensor[0]->GetNbinsX()));
-        station_y_min = std::min(station_y_min, h->GetXaxis()->GetBinLowEdge(1));
-        station_y_max = std::max(station_y_max, h->GetYaxis()->GetBinLowEdge(h_sensor[0]->GetNbinsY()));
+        station_x_max = std::max(station_x_max, h->GetXaxis()->GetBinUpEdge(h->GetNbinsX()));
+        station_y_min = std::min(station_y_min, h->GetYaxis()->GetBinLowEdge(1));
+        station_y_max = std::max(station_y_max, h->GetYaxis()->GetBinUpEdge(h->GetNbinsY()));
     }
 
     double range_x = station_x_max - station_x_min;
@@ -307,7 +318,7 @@ void MergeStationSensors(   std::vector<TH2D*> h_sensor,
     // Copy sensor histogram content to station histogram
     for (auto h : h_sensor){
         for (int bin_x = 1 ; bin_x <= h->GetNbinsX(); bin_x++){
-        for (int bin_y = 1 ; bin_y <= h->GetNbinsX(); bin_y++){
+        for (int bin_y = 1 ; bin_y <= h->GetNbinsY(); bin_y++){
             double x = h->GetXaxis()->GetBinCenter(bin_x);
             double y = h->GetYaxis()->GetBinCenter(bin_y);
 

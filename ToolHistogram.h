@@ -4,6 +4,15 @@
 #ifndef TOOLHISTOGRAM_H
 #define TOOLHISTOGRAM_H
 
+#include <TAxis.h>
+#include <TBox.h>
+#include <TGraph.h>
+#include <TH1.h>
+#include <TH1D.h>
+#include <TH2D.h>
+#include <TLine.h>
+#include <TPaveText.h>
+
 template<typename TObj>
 void SetAxisLabels(TObj* h, std::string x_label = "", std::string y_label = "", float txt_size = 0.05){
     if (h == nullptr){ return; }

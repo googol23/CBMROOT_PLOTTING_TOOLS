@@ -1,6 +1,9 @@
 #ifndef TOOLCHANNELSCAN_H
 #define TOOLCHANNELSCAN_H
 
+#include <TH1.h>
+#include <TH2D.h>
+
 #include <yaml-cpp/yaml.h>
 #include "ToolIO.h"
 #include "ToolStatistic.h"

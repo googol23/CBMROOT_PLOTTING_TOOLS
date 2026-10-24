@@ -1,7 +1,15 @@
 #include "ToolCanvas.h"
+#include "ToolHistogram.h"
 
 #ifndef TOOLCHARGE_H
 #define TOOLCHARGE_H
+
+#include <TF1.h>
+#include <TFitResult.h>
+#include <TH1.h>
+#include <TLegend.h>
+#include <TMath.h>
+#include <TVirtualFitter.h>
 
 Double_t BackgroundFit (Double_t* x, Double_t* par){
     Double_t p0 = par[0];
@@ -30,14 +38,15 @@ std::vector<TF1*> FitCharge(TH1* h_ptr,
     bool log_scale_y = false,
     bool log_scale_x = false){
 
-    TH1D* h =  (TH1D*)h_ptr->Clone();
+    if (h_ptr == nullptr || h_ptr->GetEntries() == 0) return {nullptr, nullptr, nullptr};
+    TH1* h = static_cast<TH1*>(h_ptr->Clone());
 
     TFitResultPtr fit;
     double  fit_range = 10.*FWHM(h);
     double x_min = x0 == x1 ? h->GetBinCenter(h->GetMaximumBin()) - fit_range : x0 ;
     double x_max = x0 == x1 ? h->GetBinCenter(h->GetMaximumBin()) + fit_range : x1;
 
-    TH1D* h_peak = (TH1D*)h->Clone();
+    TH1* h_peak = static_cast<TH1*>(h->Clone());
     h_peak->GetXaxis()->SetRangeUser(20e+3, 40e+3);
     double peak_posit = h_peak->GetBinCenter(h->GetMaximumBin());
     double sigma_init = h_peak->GetRMS();
@@ -75,7 +84,8 @@ std::vector<TF1*> FitCharge(TH1* h_ptr,
     }
 
     std::unique_ptr<TF1> backFcn = std::make_unique<TF1>(Form("backFcn_%s", h->GetName()),BackgroundFit,x_min,x_max,3);
-    std::unique_ptr<TF1> signalFcn = std::make_unique<TF1>(Form("signalFcn_%s", h->GetName()),LandauBkg,x_min,x_max,3);
+    std::unique_ptr<TF1> signalFcn = std::make_unique<TF1>(Form("signalFcn_%s", h->GetName()),
+        "[0]*[2]*[2]/((x-[1])*(x-[1])+[2]*[2])", x_min, x_max);
     Double_t par[6];
 
     fitFcn->GetParameters(par);

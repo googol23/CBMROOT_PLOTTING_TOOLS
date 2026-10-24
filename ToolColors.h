@@ -1,6 +1,13 @@
 #ifndef TOOLCOLORS_H
 #define TOOLCOLORS_H
 
+#include <TCanvas.h>
+#include <TColor.h>
+#include <TROOT.h>
+#include <TStyle.h>
+#include <fstream>
+#include <iostream>
+
 std::vector<int> Colors1D = {
     TColor::GetColor(  0,   0,   0),     // kBlack
     TColor::GetColor( 23,  57,  92),     // #17395C
@@ -56,34 +63,35 @@ std::vector<int> color_large_set = {
 Int_t MyPalette[256];
 void LoadCustomColormap(const char* colormapFile = "inferno.txt") {
     const int n_of_colors = 256;
-
-    // Create arrays to hold color stops and their RGB values
-    Int_t colors[n_of_colors];
-    Double_t stops[n_of_colors];
-    Double_t red[n_of_colors];
-    Double_t green[n_of_colors];
-    Double_t blue[n_of_colors];
-
-    // Read RGB values from the colormap file
-    FILE* file = fopen(colormapFile, "r");
-    if (file) {
-        for (int i = 0; i < n_of_colors; ++i) {
-            int r, g, b;
-            if (fscanf(file, "%d %d %d\n", &r, &g, &b) == 3) {
-            stops[i] = i / (n_of_colors - 1.0);
-            red[i] = r / 256.0;
-            green[i] = g / 256.0;
-            blue[i] = b / 256.0;
-            }
-        }
-        fclose(file);
+    if (colormapFile == nullptr || *colormapFile == '\0') {
+        std::cerr << "Invalid colormap file path\n";
+        return;
     }
 
-    // Create the custom gradient color table
-    Int_t FI = TColor::CreateGradientColorTable(n_of_colors, stops, red, green, blue, n_of_colors );
+    std::ifstream file(colormapFile);
+    if (!file) {
+        std::cerr << "Cannot open colormap file: " << colormapFile << std::endl;
+        return;
+    }
 
-    // Save the custom pelette
-    for (int i=0;i<100;i++){ MyPalette[i] = FI+i; }
+    Double_t stops[n_of_colors] = {};
+    Double_t red[n_of_colors] = {};
+    Double_t green[n_of_colors] = {};
+    Double_t blue[n_of_colors] = {};
+    for (int i = 0; i < n_of_colors; ++i) {
+        int r, g, b;
+        if (!(file >> r >> g >> b) || r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+            std::cerr << "Invalid RGB data in colormap file: " << colormapFile << std::endl;
+            return;
+        }
+        stops[i] = i / (n_of_colors - 1.0);
+        red[i] = r / 256.0;
+        green[i] = g / 256.0;
+        blue[i] = b / 256.0;
+    }
+
+    const Int_t first_color = TColor::CreateGradientColorTable(n_of_colors, stops, red, green, blue, n_of_colors);
+    for (int i = 0; i < n_of_colors; ++i) MyPalette[i] = first_color + i;
 }
 
 /* Call function before getting objs */

@@ -75,9 +75,11 @@ struct Statistic{
     }
 
     T Mean(){
+        if (n_of_values == 0) throw std::domain_error("Mean is undefined for an empty data set");
         return sum / n_of_values;
     }
     T Variance(){
+        if (n_of_values == 0) throw std::domain_error("Variance is undefined for an empty data set");
         return (sum2 * n_of_values - sum*sum) / (n_of_values*n_of_values);
     }
 

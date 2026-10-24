@@ -3,11 +3,27 @@
 #ifndef TOOLCANVAS_H
 #define TOOLCANVAS_H
 
+#include <TBox.h>
+#include <TCanvas.h>
+#include <TList.h>
+#include <TPad.h>
+#include <TPaveText.h>
+#include <TROOT.h>
+#include <TStyle.h>
+#include <TText.h>
+#include <cstdlib>
+
 std::string SAVE_CANVAS_AS = "png";
 static const int hd_pad_x = /* 250; // */ 1024;
 static const int hd_pad_y = /* 250; // */ 1024;
 float hd_line_width = 0.0045*hd_pad_y;
 std::map<std::string, std::unique_ptr<TCanvas>> hd_canvas;
+namespace {
+const bool hd_canvas_cleanup_registered = [] {
+    std::atexit([] { hd_canvas.clear(); });
+    return true;
+}();
+}
 
 int GetNofPadsIn(TCanvas *canvas = nullptr){
     if (canvas == nullptr){ return -1; }
@@ -28,9 +44,11 @@ int GetNofPadsIn(TCanvas *canvas = nullptr){
 }
 
 void SetPadMargins(TCanvas* c, int pad = 1, std::vector<float> margin = {0.15,0.15,0.15,0.15}){
-    if (c == nullptr || margin.size() == 0){ return; }
+    if (c == nullptr || margin.size() < 4){ return; }
     if (pad > 0){
+        if (pad > GetNofPadsIn(c) && GetNofPadsIn(c) > 0) return;
         c->cd(pad);
+        if (gPad == nullptr) return;
         gPad->SetLeftMargin  (margin[0]);
         gPad->SetRightMargin (margin[1]);
         gPad->SetTopMargin   (margin[2]);
@@ -38,6 +56,7 @@ void SetPadMargins(TCanvas* c, int pad = 1, std::vector<float> margin = {0.15,0.
     }else{
         for (int i = 1; i <= GetNofPadsIn(c); i++){
             c->cd(i);
+            if (gPad == nullptr) continue;
             gPad->SetLeftMargin  (margin[0]);
             gPad->SetRightMargin (margin[1]);
             gPad->SetTopMargin   (margin[2]);
